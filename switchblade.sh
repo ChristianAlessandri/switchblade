@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Find where the file is located
+# Find where the script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 # --- CONFIGURATIONS ---
@@ -9,12 +9,21 @@ SDDM_THEME_DIR="/usr/share/sddm/themes/your-sddm"
 SDDM_WALL_FILE="current.jpg"
 
 CLEAN_SCRIPT="$SCRIPT_DIR/clean.sh"
-CACHE_FILE="$SCRIPT_DIR/cache.csv" # Better to keep it here than in /tmp if you want it to persist after reboot
+CACHE_FILE="$SCRIPT_DIR/app_cache.csv"
+
+# Directories to scan for applications (Standard + Flatpak)
+APP_DIRS=(
+    "/usr/share/applications"
+    "$HOME/.local/share/applications"
+    "/var/lib/flatpak/exports/share/applications"
+    "$HOME/.local/share/flatpak/exports/share/applications"
+)
 
 # Custom Menu Labels
 MAIN_WALL="Change Theme"
 MAIN_PKG="Manage Packages"
 MAIN_CLEAN="Clean System"
+MAIN_REFRESH="Force Refresh Cache"
 
 # --- TERMINAL DETECTION ---
 if [ -n "$TERMINAL" ]; then
@@ -32,25 +41,87 @@ fi
 
 # --- GENERATE APP CACHE ---
 generate_app_list() {
-    if [ ! -s "$CACHE_FILE" ]; then
-        find /usr/share/applications "$HOME/.local/share/applications" -name "*.desktop" 2>/dev/null | while read -r file; do
-            name=$(grep -m 1 "^Name=" "$file" | cut -d= -f2-)
-            exec_cmd=$(grep -m 1 "^Exec=" "$file" | cut -d= -f2-)
-            icon=$(grep -m 1 "^Icon=" "$file" | cut -d= -f2-)
-            if [ -n "$name" ] && [ -n "$exec_cmd" ]; then
-                exec_clean=$(echo "$exec_cmd" | sed 's/ %[a-zA-Z]//g')
-                echo "${name}|${exec_clean}|${icon}" >> "$CACHE_FILE"
-            fi
+    local force=$1
+    local update_needed=false
+
+    # 1. If cache file doesn't exist, update.
+    if [ ! -f "$CACHE_FILE" ]; then
+        update_needed=true
+    # 2. If not forced, check if there are newer .desktop files than the cache
+    elif [ "$force" != "true" ]; then
+        # Finds files in APP_DIRS that are newer than CACHE_FILE
+        # -print -quit stops at the first result for speed
+        changed=$(find "${APP_DIRS[@]}" -name "*.desktop" -newer "$CACHE_FILE" -print -quit 2>/dev/null)
+        if [ -n "$changed" ]; then
+            update_needed=true
+        fi
+    else
+        update_needed=true
+    fi
+
+    if [ "$update_needed" = true ]; then
+        # Clear/Create temp file
+        : > "$CACHE_FILE.tmp"
+
+        for dir in "${APP_DIRS[@]}"; do
+            [ -d "$dir" ] || continue
+            
+            # Scan files
+            find "$dir" -name "*.desktop" 2>/dev/null | while read -r file; do
+                # Robust Parsing using awk:
+                # 1. Only reads from the [Desktop Entry] block (avoids "Actions" names)
+                # 2. Handles quoting better than simple grep
+                
+                # Extract Name, Exec, Icon and NoDisplay
+                eval $(awk -F= '
+                    /^\[Desktop Entry\]/ { in_entry=1 }
+                    /^\[.*\]/ && !/^\[Desktop Entry\]/ { in_entry=0 }
+                    in_entry && /^Name=/ { if (!name) name=substr($0, 6) }
+                    in_entry && /^Exec=/ { if (!exec) exec=substr($0, 6) }
+                    in_entry && /^Icon=/ { if (!icon) icon=substr($0, 6) }
+                    in_entry && /^NoDisplay=/ { nodisplay=substr($0, 11) }
+                    END {
+                        # Escape quotes for bash safety
+                        gsub(/"/, "\\\"", name);
+                        gsub(/"/, "\\\"", exec);
+                        gsub(/"/, "\\\"", icon);
+                        print "name=\"" name "\"";
+                        print "exec_cmd=\"" exec "\"";
+                        print "icon=\"" icon "\"";
+                        print "nodisplay=\"" nodisplay "\"";
+                    }
+                ' "$file")
+
+                # Skip if NoDisplay is true or if name/exec is missing
+                if [ "$nodisplay" == "true" ] || [ -z "$name" ] || [ -z "$exec_cmd" ]; then
+                    continue
+                fi
+
+                # Clean Exec command (remove %f, %u, field codes)
+                exec_clean=$(echo "$exec_cmd" | sed -E 's/ %[a-zA-Z]//g' | sed 's/^"//;s/"$//')
+
+                # Write format: Name|Exec|Icon
+                echo "${name}|${exec_clean}|${icon}" >> "$CACHE_FILE.tmp"
+            done
         done
+        
+        # Remove duplicates (sort by name and keep unique) and save to final file
+        sort -t'|' -u -k1,1 "$CACHE_FILE.tmp" > "$CACHE_FILE"
+        rm "$CACHE_FILE.tmp"
     fi
 }
 
 # --- MAIN MENU ---
 print_menu_options() {
+    # System Commands
     printf "%s\0icon\x1fpreferences-desktop-wallpaper\n" "$MAIN_WALL"
     printf "%s\0icon\x1fpackage-x-generic\n" "$MAIN_PKG"
     printf "%s\0icon\x1fsystem-file-manager\n" "$MAIN_CLEAN"
+    printf "%s\0icon\x1fview-refresh\n" "$MAIN_REFRESH"
+    
+    # Applications from Cache
     if [ -f "$CACHE_FILE" ]; then
+        # Format for Rofi dmenu
         awk -F'|' '{printf "%s\0icon\x1f%s\n", $1, $3}' "$CACHE_FILE"
     fi
 }
@@ -59,6 +130,7 @@ print_menu_options() {
 
 change_wallpaper() {
     file_list=("$WALL_DIR"/*)
+    
     selected_name=$(
         for file in "${file_list[@]}"; do
             if [ -f "$file" ]; then
@@ -69,7 +141,6 @@ change_wallpaper() {
         done | rofi -dmenu -p "Wallpaper" -show-icons -theme-str 'window {width: 40%;}' -format s
     )
 
-    # If the user presses Esc here, selected_name is empty, the function ends and returns to the menu
     if [ -n "$selected_name" ]; then
         for file in "${file_list[@]}"; do
             if [[ "$file" == *"$selected_name"* ]]; then
@@ -88,7 +159,6 @@ manage_packages() {
     SRC_YAY="Yay"
     SRC_FLATPAK="Flatpak"
     
-    # If the user presses Esc here, source is empty, return and go back to the Main Loop
     source=$(printf "%s\n%s\n%s" "$SRC_PACMAN" "$SRC_YAY" "$SRC_FLATPAK" | rofi -dmenu -p "Source" -theme-str 'window {width: 20%;}')
     
     [ -z "$source" ] && return
@@ -100,7 +170,6 @@ manage_packages() {
         *) return ;;
     esac
 
-    # If the user presses Esc here, pkg is empty, the if block is skipped, function ends -> Main Loop
     pkg=$(eval "$cmd" | rofi -dmenu -i -p "Search $source")
     
     if [ -n "$pkg" ]; then
@@ -126,13 +195,13 @@ run_clean() {
 
 # --- MAIN LOOP ---
 
-generate_app_list
+# Initial check (not forced)
+generate_app_list "false"
 
 while true; do
     # Direct pipe to rofi
     SELECTION=$(print_menu_options | rofi -dmenu -i -p "Switchblade" -show-icons -theme-str 'window {width: 35%;}' -format s)
 
-    # If the user presses Esc in the MAIN MENU, exit the script
     if [ -z "$SELECTION" ]; then
         exit 0
     fi
@@ -147,13 +216,18 @@ while true; do
         "$MAIN_CLEAN")
             run_clean
             ;;
+        "$MAIN_REFRESH")
+            generate_app_list "true"
+            ;;
         *)
-            # App Management
-            CMD=$(grep -m 1 "^${SELECTION}|" "$CACHE_FILE" | cut -d'|' -f2)
+            # Application Management
+            CMD_LINE=$(grep -F -m 1 "${SELECTION}|" "$CACHE_FILE")
+            CMD=$(echo "$CMD_LINE" | cut -d'|' -f2)
             
             if [ -n "$CMD" ]; then
-                nohup $CMD >/dev/null 2>&1 &
-                exit 0 # If you launch an app, you want the menu to really close
+                # Launch detached
+                nohup sh -c "$CMD" >/dev/null 2>&1 &
+                exit 0 
             fi
             ;;
     esac
