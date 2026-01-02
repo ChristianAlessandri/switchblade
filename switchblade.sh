@@ -159,7 +159,7 @@ manage_packages() {
     SRC_YAY="Yay"
     SRC_FLATPAK="Flatpak"
     
-    source=$(printf "%s\n%s\n%s" "$SRC_PACMAN" "$SRC_YAY" "$SRC_FLATPAK" | rofi -dmenu -p "Source" -theme-str 'window {width: 20%;}')
+    source=$(printf "%s\n%s\n%s" "$SRC_PACMAN" "$SRC_YAY" "$SRC_FLATPAK" | rofi -dmenu -p "Source" -theme-str 'window {width: 20%;} listview {lines: 3;}')
     
     [ -z "$source" ] && return
 
@@ -173,10 +173,15 @@ manage_packages() {
     pkg=$(eval "$cmd" | rofi -dmenu -i -p "Search $source")
     
     if [ -n "$pkg" ]; then
-        action=$(printf "Info\nUninstall" | rofi -dmenu -p "$pkg" -theme-str 'window {width: 20%; height: 15%;}')
+        action=$(printf "Info\0icon\x1fdialog-information\nUninstall\0icon\x1fuser-trash\n" | rofi -dmenu -p "$pkg" -show-icons -theme-str 'window {width: 20%;} listview {lines: 2;}')
+        
         case "$action" in
             "Info")
-                if [ "$source" == "Flatpak" ]; then flatpak info "$pkg"; else pacman -Qi "$pkg" || yay -Qi "$pkg"; fi | rofi -dmenu -lines 20 -theme-str 'window {width: 50%;}' 
+                if [ "$source" == "Flatpak" ]; then 
+                    flatpak info "$pkg"
+                else 
+                    pacman -Qi "$pkg" || yay -Qi "$pkg"
+                fi | rofi -dmenu -p "Info: $pkg" -lines 20 -theme-str 'window {width: 50%;}' 
                 ;;
             "Uninstall") 
                 $TERM_CMD bash -c "$remove $pkg; read -p 'Press Enter...'" 
