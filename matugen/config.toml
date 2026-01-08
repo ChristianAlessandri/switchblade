@@ -1,0 +1,65 @@
+[config.wallpaper]
+command = "awww"
+arguments = ["img", "--transition-type", "any", "--transition-fps", "180"]
+set = true
+
+
+[templates.waybar]
+input_path = './templates/colors.css'
+output_path = '~/.config/waybar/colors.css'
+post_hook = 'pkill -SIGUSR2 waybar'
+
+
+[templates.rofi]
+input_path = 'templates/rofi-colors.rasi'
+output_path = '~/.config/rofi/colors.rasi'
+
+
+[templates.kitty]
+input_path = 'templates/kitty-colors.conf'
+output_path = '~/.config/kitty/colors.conf'
+post_hook = 'pkill -SIGUSR1 kitty'
+
+
+[templates.wlogout]
+input_path = 'templates/colors.css'
+output_path = '~/.config/wlogout/colors.css'
+
+
+[templates.btop]
+input_path = 'templates/btop.theme'
+output_path = '~/.config/btop/themes/matugen.theme'
+
+
+[templates.cava]
+input_path = 'templates/cava-colors.ini'
+output_path = '~/.config/cava/themes/your-theme'
+post_hook = "pkill -USR1 cava"
+
+
+[templates.starship]
+input_path = 'templates/starship-colors.toml'
+output_path = '~/.config/starship.toml'
+
+
+[templates.hyprland]
+input_path = 'templates/hyprland-colors.conf'
+output_path = '~/.config/hypr/colors.conf'
+post_hook = 'hyprctl reload'
+
+
+[templates.yazi]
+input_path = 'templates/yazi-theme.toml'
+output_path = '~/.config/yazi/theme.toml'
+
+
+[templates.swaync]
+input_path = "templates/colors.css"
+output_path = "~/.config/swaync/colors.css"
+post_hook = "swaync-client -rs"
+
+
+[templates.sddm]
+input_path = "templates/sddm-colors.qml"
+output_path = "/home/YOUR_USERNAME/.cache/Colors.qml"
+post_hook = "sudo cp /home/YOUR_USERNAME/.cache/Colors.qml /usr/share/sddm/themes/YOUR_THEME_NAME/Colors.qml"

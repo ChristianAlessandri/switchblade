@@ -44,12 +44,26 @@ Before using, ensure you have these installed:
 
 ## Configuration
 
+### 1. Script Variables
+
 Open `switchblade.sh` and edit the top variables to match your system:
 
 ```bash
 WALL_DIR="$HOME/Pictures/Wallpapers"      # Your wallpaper folder
 SDDM_THEME_DIR="/usr/share/sddm/themes/..." # Your SDDM theme path
 ```
+
+### 2. Theme Integration (Matugen)
+
+To enable dynamic theming for apps (Waybar, Kitty, etc.) and SDDM, you need to configure Matugen. **👉 Please read the [Matugen Setup Guide](./matugen/README.md) inside the `matugen` folder.**
+
+It explains how to:
+
+- Copy the config files.
+- Set up the `sudoers` permission for the login screen.
+- **Configure your SDDM theme to use the dynamic wallpaper.**
+
+---
 
 ## Usage
 
@@ -61,7 +75,9 @@ Add this to your `hyprland.conf`:
    bind = $mainMod, TAB, exec, /home/$USER/switchblade/switchblade.sh
    ```
 
-2. **Fast UI Reload**: Bypass the menu to instantly reload Waybar and SwayNC:
+2. **Fast UI Reload**
+
+   Bypass the menu to instantly reload Waybar and SwayNC:
 
    ```bash
    bind = $mainMod, R, exec, ~/switchblade/switchblade.sh --reload
