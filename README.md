@@ -16,7 +16,6 @@ Before using, ensure you have these installed:
 
 ### Required
 
-- [awww](https://codeberg.org/LGFae/awww) (the successor to swww)
 - **libnotify** (for system notifications)
 - [matugen](https://github.com/InioX/matugen) (for color generation)
 - **polkit** (required for SDDM permission escalation)
