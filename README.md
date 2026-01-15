@@ -2,6 +2,8 @@
 
 A Swiss Army Knife menu for Rofi (App launcher, Wallpaper, Package manager, System Cleanup and much more).
 
+![Screenshot](./screenshot.png)
+
 ## Features
 
 - **App Launcher**: Cached for speed.
