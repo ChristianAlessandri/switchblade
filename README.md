@@ -57,7 +57,7 @@ SDDM_THEME_DIR="/usr/share/sddm/themes/..." # Your SDDM theme path
 
 ### 2. Theme Integration (Matugen)
 
-To enable dynamic theming for apps (Waybar, Kitty, etc.) and SDDM, you need to configure Matugen. **👉 Please read the [Matugen Setup Guide](./matugen/README.md) inside the `matugen` folder.**
+To enable dynamic theming for apps (Waybar, Kitty, etc.) and SDDM, you need to configure Matugen. **👉 Please read the [Matugen Setup Guide](https://github.com/ChristianAlessandri/switchblade-dotfiles).**
 
 It explains how to:
 
